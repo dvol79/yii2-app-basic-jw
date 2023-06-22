@@ -19,7 +19,7 @@ $config = [
         ],
         'jwt' => [
             'class' => 'app\components\jwt\JwtService',
-            'tokenClass' => 'app\components\jwt\tokens\JwtHs256Token',
+            'tokenClass' => 'app\components\jwt\JwtHs256Token',
             'secretKey' => 'IU4-6Gftr*Huy41K72p',
             'issuer' => 'your-project.com',
             'audience' => ['your-project.com'],
