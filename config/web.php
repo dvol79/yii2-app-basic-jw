@@ -17,6 +17,13 @@ $config = [
             'cookieValidationKey' => md5('Mhuy^&9790nGfd'),
             'baseUrl' => '',
         ],
+        'jwt' => [
+            'class' => 'app\components\jwt\JwtService',
+            'tokenClass' => 'app\components\jwt\tokens\JwtHs256Token',
+            'secretKey' => 'IU4-6Gftr*Huy41K72p',
+            'issuer' => 'your-project.com',
+            'audience' => ['your-project.com'],
+        ],
         'cache' => [
             'class' => 'yii\caching\FileCache',
         ],
