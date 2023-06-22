@@ -33,8 +33,6 @@ use yii\base\InvalidConfigException;
  * @category Authentication
  * @package  app\components\jwt
  * @author   Dmitry Volkov <kidvol2002@gmail.com>
- * 
- * @link https://github.com/kakadu-dev/yii2-jwt-auth
  */
 class JwtBearerAuth extends HttpBearerAuth
 {

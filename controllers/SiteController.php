@@ -3,12 +3,13 @@
 namespace app\controllers;
 
 use Yii;
-use yii\filters\AccessControl;
+use yii\filters\Cors;
 use yii\web\Controller;
 use yii\web\Response;
-use yii\filters\VerbFilter;
 use app\models\LoginForm;
 use app\models\ContactForm;
+use app\components\jwt\JwtBearerAuth;
+use yii\web\UnauthorizedHttpException;
 
 class SiteController extends Controller
 {
@@ -17,25 +18,23 @@ class SiteController extends Controller
      */
     public function behaviors()
     {
-        return [
-            'access' => [
-                'class' => AccessControl::class,
-                'only' => ['logout'],
-                'rules' => [
-                    [
-                        'actions' => ['logout'],
-                        'allow' => true,
-                        'roles' => ['@'],
-                    ],
-                ],
-            ],
-            'verbs' => [
-                'class' => VerbFilter::class,
-                'actions' => [
-                    'logout' => ['post'],
-                ],
+        $behaviors = parent::behaviors();
+
+        $behaviors['authenticator'] = [
+            'class'  => JwtBearerAuth::class,
+            'except' => [
+                'options',
+                'login',
+                'logout',
+                'refresh-token'
             ],
         ];
+
+        $behaviors['cors'] = [
+            'class' => Cors::class
+        ];
+
+        return $behaviors;
     }
 
     /**
@@ -76,7 +75,13 @@ class SiteController extends Controller
         }
 
         $model = new LoginForm();
-        if ($model->load(Yii::$app->request->post()) && $model->login()) {
+        if ($model->load(Yii::$app->request->post()) && $model->login() && $user = $model->getUser()) {
+            /** @var \app\components\jwt\JwtService $jwt */
+            $jwt = Yii::$app->jwt;
+            $refreshToken = $jwt->generateRefreshToken($user->id);
+            $accessToken = $jwt->createJwt(['user_token' => $user->auth_key]);
+            // send $refreshToken and $accessToken to front
+
             return $this->goBack();
         }
 
@@ -93,8 +98,22 @@ class SiteController extends Controller
      */
     public function actionLogout()
     {
-        Yii::$app->user->logout();
+        /** @var \app\components\jwt\JwtService $jwt */
+        $jwt = Yii::$app->jwt;
 
+        /** @var \yii\web\Request $request */
+        $request = Yii::$app->request;
+
+        /** @var string|null $authHeader */
+        $authHeader = $request->headers->get('authorization');
+
+        /** @var string|null $refreshToken */
+        $refreshToken = $request->post('refreshToken');
+
+        if ($authHeader && $refreshToken && $jwt->deleteCurrentRefreshToken($refreshToken)) {
+            Yii::$app->user->logout();
+        }
+        
         return $this->goHome();
     }
 
@@ -124,5 +143,30 @@ class SiteController extends Controller
     public function actionAbout()
     {
         return $this->render('about');
+    }
+
+    /**
+     * Autologin, if access token expired and refresh token not expired.
+     *
+     * @return string
+     * @throws UnauthorizedHttpException
+     * @throws ServerErrorHttpException
+     * @link https://www.yiiframework.com/wiki/2568/jwt-authentication-tutorial
+     */
+    public function actionRefreshToken(): string
+    {
+        /** @var \app\components\jwt\JwtService */
+        $jwt = Yii::$app->jwt;
+        $token = null;
+
+        if ($refreshToken = Yii::$app->request->post('refreshToken')) {
+            $token = $jwt->renewJwtTokens($refreshToken);
+        }
+
+        if ($token === null) {
+            throw new UnauthorizedHttpException('Wrong request method.');
+        }
+        
+        return $token; 
     }
 }
